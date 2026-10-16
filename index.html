@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>אישור הוצאה</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-secondary-bg-color, #f2f2f7);
+    --card: var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #ffffff));
+    --text: var(--tg-theme-text-color, #111111);
+    --hint: var(--tg-theme-hint-color, #8e8e93);
+    --accent: var(--tg-theme-button-color, #2481cc);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --danger: var(--tg-theme-destructive-text-color, #e5484d);
+    --ok: #2fb36b;
+    --line: color-mix(in srgb, var(--hint) 22%, transparent);
+    --soft: color-mix(in srgb, var(--accent) 12%, var(--card));
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: var(--tg-theme-secondary-bg-color, #000000);
+      --card: var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #1c1c1e));
+      --text: var(--tg-theme-text-color, #ffffff);
+      --hint: var(--tg-theme-hint-color, #98989f);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Noto Sans Hebrew", sans-serif;
+    padding: 12px 16px calc(28px + env(safe-area-inset-bottom));
+    min-height: 100vh;
+  }
+  [hidden] { display: none !important; }
+  .view { animation: in .22s ease-out; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .center { text-align: center; padding: 48px 8px 16px; }
+  .glyph { font-size: 56px; line-height: 1; margin-bottom: 14px; }
+  h1 { font-size: 24px; margin: 0 0 8px; font-weight: 750; letter-spacing: -.2px; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--hint); margin: 22px 4px 8px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--hint); font-size: 15px; }
+
+  .spinner { width: 34px; height: 34px; border-radius: 50%; margin: 80px auto 0;
+    border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .card { background: var(--card); border-radius: var(--radius); padding: 18px 16px; }
+
+  /* כרטיס הרכישה */
+  .purchase { text-align: center; padding-top: 14px; }
+  .queue { display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent);
+    background: var(--soft); border-radius: 999px; padding: 3px 10px; margin-bottom: 8px; }
+  .amount-row { display: flex; align-items: baseline; justify-content: center; gap: 6px; direction: ltr; }
+  .amount-row input {
+    width: 4ch; border: 0; outline: 0; background: transparent; color: var(--text);
+    font-family: inherit; font-size: 46px; font-weight: 800; line-height: 1.1; letter-spacing: -1px; text-align: center; padding: 0;
+    border-bottom: 2px dashed transparent; caret-color: var(--accent);
+  }
+  .amount-row input:focus { border-bottom-color: var(--line); }
+  .amount-row .measure { position: absolute; visibility: hidden; white-space: pre; font-family: inherit;
+    font-size: 46px; font-weight: 800; letter-spacing: -1px; }
+  .amount-row .cur { font-size: 26px; font-weight: 700; color: var(--hint); }
+  .merchant { font-size: 19px; font-weight: 650; margin-top: 6px; word-break: break-word; }
+  .meta { color: var(--hint); font-size: 14px; margin-top: 3px; }
+  .warn { margin-top: 12px; font-size: 14px; color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 10%, var(--card)); border-radius: 10px; padding: 8px 10px; }
+
+  /* קטגוריות */
+  .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cat { position: relative; text-align: right; border: 2px solid transparent; background: var(--card);
+    color: var(--text); border-radius: 14px; padding: 10px 12px 12px; font: inherit; cursor: pointer;
+    transition: transform .08s ease, border-color .15s ease, background .15s ease; }
+  .cat:active { transform: scale(.97); }
+  .cat .name { display: block; font-weight: 650; font-size: 15px; padding-left: 34px; }
+  .cat .left { display: block; font-size: 12.5px; color: var(--hint); margin-top: 2px; }
+  .cat .left.over { color: var(--danger); font-weight: 600; }
+  .cat .bar { height: 4px; border-radius: 4px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .cat .bar i { display: block; height: 100%; width: 0; background: var(--ok); border-radius: 4px; transition: width .3s ease; }
+  .cat .bar i.warm { background: #f5a623; }
+  .cat .bar i.over { background: var(--danger); }
+  .cat .tag { position: absolute; top: 9px; left: 10px; font-size: 10.5px; font-weight: 700;
+    color: var(--accent); background: var(--soft); border-radius: 999px; padding: 1px 7px; }
+  .cat.sel { border-color: var(--accent); background: var(--soft); }
+  .cat.sel .tag { background: var(--accent); color: var(--accent-text); }
+
+  .note { width: 100%; border: 0; outline: 0; background: var(--card); color: var(--text); border-radius: 14px;
+    padding: 13px 14px; font: inherit; }
+  .link { display: block; margin: 22px auto 0; border: 0; background: none; color: var(--danger); font-family: inherit; font-size: 15px; font-weight: 600; padding: 8px; }
+  .btn { display: inline-block; border: 0; border-radius: 12px; padding: 12px 20px; font-family: inherit; font-size: 16px; font-weight: 650;
+    background: var(--accent); color: var(--accent-text); margin-top: 14px; }
+  .btn.ghost { background: var(--soft); color: var(--accent); }
+
+  .facts { list-style: none; padding: 0; margin: 18px 0 0; text-align: right; }
+  .facts li { background: var(--card); border-radius: 12px; padding: 11px 14px; margin-bottom: 8px; font-size: 15px; }
+  .facts li::before { content: "✓"; color: var(--ok); font-weight: 800; margin-left: 8px; }
+  .msg { color: var(--danger); font-size: 14px; margin-top: 12px; min-height: 1em; }
+
+  /* אחרי רישום */
+  .done-ring { width: 84px; height: 84px; border-radius: 50%; margin: 36px auto 16px; display: grid; place-items: center;
+    background: color-mix(in srgb, var(--ok) 16%, var(--card)); color: var(--ok); font-size: 42px; font-weight: 800;
+    animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .budget { margin-top: 18px; text-align: right; }
+  .budget .row { display: flex; justify-content: space-between; font-size: 14px; color: var(--hint); }
+  .budget .big { font-size: 22px; font-weight: 750; color: var(--text); margin: 4px 0 10px; }
+  .budget .big.over { color: var(--danger); }
+  .budget .bar { height: 8px; border-radius: 8px; background: var(--line); overflow: hidden; }
+  .budget .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .6s ease; }
+  .budget .bar i.warm { background: #f5a623; }
+  .budget .bar i.over { background: var(--danger); }
+
+  .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+    background: color-mix(in srgb, var(--text) 88%, transparent); color: var(--bg); padding: 10px 16px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; opacity: 0; transition: .2s ease; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
+  .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<main>
+  <section id="v-loading" class="view"><div class="spinner" aria-label="טוען"></div></section>
+
+  <section id="v-error" class="view center" hidden>
+    <div class="glyph">⚠️</div>
+    <h1>משהו לא הסתדר</h1>
+    <p id="err-msg" class="muted"></p>
+    <button id="err-retry" class="btn ghost" hidden>נסה שוב</button>
+    <button id="err-settings" class="btn ghost" hidden>פתח הגדרות זיהוי פנים</button>
+  </section>
+
+  <section id="v-setup" class="view center" hidden>
+    <div class="glyph">🔐</div>
+    <h1>אישור בזיהוי פנים</h1>
+    <p class="muted">הגדרה חד פעמית: נשמר בטלפון מפתח מאובטח שנפתח רק בזיהוי הפנים שלך. בלי המפתח אי אפשר לרשום אף הוצאה.</p>
+    <ul class="facts">
+      <li>פרטי האשראי לא נכנסים למערכת בכלל</li>
+      <li>השרת שומר רק טביעה מוצפנת של המפתח</li>
+      <li>כל רישום דורש זיהוי פנים, גם כשהטלפון פתוח</li>
+    </ul>
+    <p id="setup-msg" class="msg"></p>
+    <button id="setup-settings" class="btn ghost" hidden>פתח הגדרות זיהוי פנים</button>
+  </section>
+
+  <section id="v-reset" class="view center" hidden>
+    <div class="glyph">📱</div>
+    <h1>המפתח לא נמצא בטלפון</h1>
+    <p class="muted">זיהוי הפנים הוגדר במכשיר אחר או לפני התקנה מחדש של טלגרם. בעורך הסקריפט מריצים את הפונקציה לאיפוס זיהוי הפנים, ופותחים שוב את המסך תוך 15 דקות.</p>
+  </section>
+
+  <section id="v-closed" class="view center" hidden>
+    <div class="glyph">⏳</div>
+    <h1>חלון ההגדרה סגור</h1>
+    <p class="muted">מטעמי אבטחה אפשר להגדיר זיהוי פנים רק ברבע השעה שאחרי הרצת רכישת הבדיקה או האיפוס בעורך הסקריפט. מריצים אחת מהן ופותחים שוב.</p>
+  </section>
+
+  <section id="v-lock" class="view center" hidden>
+    <div class="glyph">🔒</div>
+    <h1>נעול</h1>
+    <p class="muted">פרטי הרכישות נפתחים רק בזיהוי הפנים שלך.</p>
+    <p id="lock-msg" class="msg"></p>
+  </section>
+
+  <section id="v-empty" class="view center" hidden>
+    <div class="glyph">✨</div>
+    <h1>הכל מאושר</h1>
+    <p class="muted">אין רכישות שממתינות לאישור.</p>
+  </section>
+
+  <section id="v-handled" class="view center" hidden>
+    <div class="glyph" id="handled-glyph">✅</div>
+    <h1 id="handled-title"></h1>
+    <p id="handled-text" class="muted"></p>
+  </section>
+
+  <section id="v-purchase" class="view" hidden>
+    <div class="card purchase">
+      <div id="queue" class="queue" hidden></div>
+      <div class="amount-row">
+        <input id="amount" inputmode="decimal" autocomplete="off" aria-label="סכום">
+        <span id="amount-measure" class="measure" aria-hidden="true"></span>
+        <span id="currency" class="cur">₪</span>
+      </div>
+      <div id="merchant" class="merchant"></div>
+      <div id="meta" class="meta"></div>
+      <div id="warn" class="warn" hidden></div>
+    </div>
+
+    <h2>קטגוריה</h2>
+    <div id="cats" class="cats"></div>
+
+    <h2>הערה</h2>
+    <input id="note" class="note" maxlength="200" autocomplete="off" aria-label="הערה">
+
+    <button id="reject" class="link">לא לרשום את הרכישה</button>
+  </section>
+
+  <section id="v-done" class="view" hidden>
+    <div class="done-ring">✓</div>
+    <div class="center" style="padding:0">
+      <h1>נרשם</h1>
+      <p id="done-line" class="muted"></p>
+    </div>
+    <div class="card budget">
+      <div class="row"><span id="done-cat"></span><span id="done-of"></span></div>
+      <div id="done-big" class="big"></div>
+      <div class="bar"><i id="done-bar"></i></div>
+    </div>
+  </section>
+</main>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // אופציונלי: להדביק כאן את כתובת הפריסה כדי לנעול את המסך לשרת אחד בלבד
+  var PINNED_API = '';
+
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var qs = new URLSearchParams(location.search);
+  var API = PINNED_API || qs.get('api') || '';
+  var WAITING = 'ממתין';
+  var RELOCK_AFTER_MS = 30000;
+  var state = { hello: null, data: null, token: '', selected: '', busy: false, closeTimer: null, wantId: qs.get('id') || '', view: '', hiddenAt: 0 };
+  var mainHandler = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function show(view) {
+    state.view = view;
+    var views = document.querySelectorAll('.view');
+    for (var i = 0; i < views.length; i++) views[i].hidden = views[i].id !== 'v-' + view;
+    window.scrollTo(0, 0);
+  }
+
+  function fmt(n) {
+    var v = Math.round(n * 100) / 100;
+    var frac = v % 1 !== 0;
+    return new Intl.NumberFormat('he-IL', { minimumFractionDigits: frac ? 2 : 0, maximumFractionDigits: 2 }).format(v);
+  }
+
+  function fmtTime(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var opts = { timeZone: 'Asia/Jerusalem' };
+    var time = d.toLocaleTimeString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('he-IL', opts) === new Date().toLocaleDateString('he-IL', opts)
+      ? 'היום ' + time
+      : d.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'numeric' }) + ' ' + time;
+  }
+
+  function haptic(type) {
+    try {
+      if (type === 'select') tg.HapticFeedback.selectionChanged();
+      else tg.HapticFeedback.notificationOccurred(type);
+    } catch (e) { /* לא קריטי */ }
+  }
+
+  function toast(text) {
+    var t = $('toast');
+    t.textContent = text;
+    t.classList.add('on');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(function () { t.classList.remove('on'); }, 2600);
+  }
+
+  function err(code, message) { var e = new Error(message); e.code = code; return e; }
+
+  /* ---------- כפתור ראשי של טלגרם ---------- */
+
+  function setMain(text, handler, active) {
+    var mb = tg.MainButton;
+    var tp = tg.themeParams || {};
+    if (mainHandler) mb.offClick(mainHandler);
+    mainHandler = handler;
+    mb.setParams({
+      text: text,
+      is_active: active !== false,
+      color: active !== false ? (tp.button_color || '#2481cc') : (tp.hint_color || '#a0a0a5'),
+      text_color: tp.button_text_color || '#ffffff',
+    });
+    mb.onClick(handler);
+    mb.show();
+  }
+
+  function hideMain() {
+    var mb = tg.MainButton;
+    if (mainHandler) mb.offClick(mainHandler);
+    mainHandler = null;
+    try { mb.hideProgress(); } catch (e) {}
+    mb.hide();
+  }
+
+  /* ---------- זיהוי פנים ---------- */
+
+  var bm = function () { return tg.BiometricManager; };
+
+  function bmInit() {
+    return new Promise(function (resolve) {
+      var done = false;
+      var finish = function () { if (!done) { done = true; resolve(); } };
+      bm().init(finish);
+      setTimeout(finish, 4000);
+    });
+  }
+  function bmRequestAccess() {
+    return new Promise(function (resolve) {
+      bm().requestAccess({ reason: 'כדי שכל פתיחה ואישור של הוצאה יהיו בזיהוי הפנים שלך' }, function (granted) { resolve(!!granted); });
+    });
+  }
+  function bmUpdateToken(token) {
+    return new Promise(function (resolve) { bm().updateBiometricToken(token, function (ok) { resolve(!!ok); }); });
+  }
+  function bmAuthenticate(reason) {
+    return new Promise(function (resolve) {
+      bm().authenticate({ reason: reason.slice(0, 128) }, function (ok, token) { resolve({ ok: !!ok, token: token || '' }); });
+    });
+  }
+
+  function randomHex(bytes) {
+    var a = new Uint8Array(bytes);
+    crypto.getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+
+  /* ---------- שרת ---------- */
+
+  function api(action, payload) {
+    var body = Object.assign({ action: action, initData: tg.initData }, payload || {});
+    return fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body),
+      redirect: 'follow',
+      cache: 'no-store',
+    }).catch(function () {
+      throw err('network', 'אין חיבור לשרת. בדוק אינטרנט ונסה שוב.');
+    }).then(function (res) {
+      return res.json().catch(function () {
+        throw err('bad_response', 'תשובה לא תקינה מהשרת. ודא שהסקריפט פרוס עם גישה לכולם.');
+      });
+    }).then(function (data) {
+      if (!data.ok) throw err(data.error || 'error', data.message || 'שגיאה לא ידועה');
+      return data;
+    });
+  }
+
+  function validApi(u) {
+    return /^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+|macros)\/s\/[\w-]+\/exec$/.test(u);
+  }
+
+  /* ---------- ניתוב ---------- */
+
+  function fail(message, retry, settings) {
+    hideMain();
+    $('err-msg').textContent = message;
+    $('err-retry').hidden = !retry;
+    $('err-retry').onclick = retry || null;
+    $('err-settings').hidden = !settings;
+    show('error');
+  }
+
+  function start() {
+    show('loading');
+    hideMain();
+    api('hello').then(function (h) {
+      state.hello = h;
+      route();
+    }).catch(function (e) { fail(e.message, start); });
+  }
+
+  function route() {
+    var h = state.hello;
+    var b = bm();
+    if (!b.isBiometricAvailable) {
+      return fail('זיהוי פנים לא זמין לטלגרם. מאשרים אותו בהגדרות האייפון, ופותחים שוב.', start, true);
+    }
+    if (!h.registered) return h.setupOpen ? renderSetup() : renderStatic('closed');
+    if (!b.isBiometricTokenSaved) return renderStatic('reset');
+    if (!state.token) return unlock(true);
+    load(state.wantId);
+  }
+
+  function renderStatic(view) {
+    show(view);
+    setMain('סגור', function () { tg.close(); });
+  }
+
+  /* ---------- נעילה ---------- */
+
+  function renderLock(msg) {
+    show('lock');
+    $('lock-msg').textContent = msg || '';
+    setMain('פתיחה בזיהוי פנים', function () { unlock(false); });
+  }
+
+  function unlock(auto) {
+    if (state.busy) return;
+    state.busy = true;
+    renderLock('');
+    bmAuthenticate('פתיחת מסך אישור ההוצאות').then(function (a) {
+      state.busy = false;
+      if (!a.ok) { renderLock(auto ? '' : 'הזיהוי בוטל, שום דבר לא נפתח.'); return; }
+      if (!a.token) { renderStatic('reset'); return; }
+      state.token = a.token;
+      haptic('success');
+      load(state.wantId);
+    });
+  }
+
+  function lockNow() {
+    state.token = '';
+    state.wantId = state.data && state.data.pending ? state.data.pending.id : state.wantId;
+    if (['purchase', 'done', 'empty', 'handled'].indexOf(state.view) >= 0) renderLock('');
+  }
+
+  /* ---------- הגדרה חד פעמית ---------- */
+
+  function renderSetup() {
+    show('setup');
+    $('setup-msg').textContent = '';
+    $('setup-settings').hidden = true;
+    setMain('הפעל אישור בזיהוי פנים', runSetup);
+  }
+
+  function runSetup() {
+    if (state.busy) return;
+    var b = bm();
+    if (b.isAccessRequested && !b.isAccessGranted) {
+      $('setup-msg').textContent = 'הגישה לזיהוי פנים נחסמה. פתח את ההגדרות ואשר אותה.';
+      $('setup-settings').hidden = false;
+      haptic('error');
+      return;
+    }
+    state.busy = true;
+    tg.MainButton.showProgress(false);
+    var granted = b.isAccessGranted ? Promise.resolve(true) : bmRequestAccess();
+    granted.then(function (ok) {
+      if (!ok) throw err('denied', 'לא ניתנה גישה לזיהוי פנים. אפשר לאשר אותה בהגדרות.');
+      var token = randomHex(32);
+      return bmUpdateToken(token).then(function (saved) {
+        if (!saved) throw err('not_saved', 'המפתח לא נשמר בטלפון. לחץ שוב.');
+        return api('register', { token: token });
+      });
+    }).then(function () {
+      haptic('success');
+      state.busy = false;
+      try { tg.MainButton.hideProgress(); } catch (x) {}
+      state.hello.registered = true;
+      route();
+    }).catch(function (e) {
+      state.busy = false;
+      try { tg.MainButton.hideProgress(); } catch (x) {}
+      if (e.code === 'setup_closed') return renderStatic('closed');
+      $('setup-msg').textContent = e.message;
+      $('setup-settings').hidden = e.code !== 'denied';
+      haptic('error');
+    });
+  }
+
+  /* ---------- רכישות ---------- */
+
+  function load(id) {
+    clearTimeout(state.closeTimer);
+    show('loading');
+    hideMain();
+    return api('state', { id: id || '', bioToken: state.token }).then(function (d) {
+      state.data = d;
+      state.wantId = '';
+      if (!d.pending) return renderStatic('empty');
+      if (d.pending.status !== WAITING) return renderHandled();
+      renderPurchase();
+    }).catch(function (e) {
+      if (e.code === 'bad_bio' || e.code === 'not_registered') { state.token = ''; return renderLock(e.message); }
+      fail(e.message, function () { load(id); });
+    });
+  }
+
+  function renderHandled() {
+    var p = state.data.pending;
+    var done = p.status === 'נרשם';
+    $('handled-glyph').textContent = done ? '✅' : '🚫';
+    $('handled-title').textContent = done ? 'כבר נרשם' : 'סומן כלא לרשום';
+    $('handled-text').textContent = done && p.category ? 'הרכישה נרשמה בקטגוריה ' + p.category + '.' : 'אין כאן מה לאשר.';
+    show('handled');
+    nextOrClose(state.data.waitingCount > 0 ? '__first__' : '');
+  }
+
+  function nextOrClose(nextId, autoClose) {
+    if (nextId) {
+      setMain('לרכישה הבאה', function () { load(nextId === '__first__' ? '' : nextId); });
+    } else {
+      setMain('סגור', function () { tg.close(); });
+      if (autoClose) state.closeTimer = setTimeout(function () { tg.close(); }, 2600);
+    }
+  }
+
+  function renderPurchase() {
+    var d = state.data;
+    var p = d.pending;
+    var names = d.categories.map(function (c) { return c.name; });
+    show('purchase');
+
+    $('queue').hidden = d.waitingCount < 2;
+    $('queue').textContent = 'עוד ' + (d.waitingCount - 1) + ' ממתינות אחריה';
+    var foreign = p.currency !== 'ILS';
+    var original = p.amount ? fmt(p.amount) + ' ' + p.currency : '';
+    $('amount').value = foreign || !p.amount ? '' : (p.amount % 1 ? p.amount.toFixed(2) : String(p.amount));
+    $('amount').placeholder = '0';
+    $('currency').textContent = '₪';
+    $('merchant').textContent = p.merchant || 'עסק לא ידוע';
+    $('meta').textContent = [p.city ? '📍 ' + p.city : '', fmtTime(p.received), p.card].filter(Boolean).join(' · ');
+
+    var warns = [];
+    if (foreign) warns.push('חיוב במטבע זר' + (original ? ' (' + original + ')' : '') + '. תקליד את הסכום בשקלים, אפשר בהערכה.');
+    else if (!p.amount) warns.push('הסכום לא הגיע מאפל פיי, תקליד אותו למעלה.');
+    $('warn').hidden = !warns.length;
+    $('warn').textContent = warns.join(' ');
+
+    state.selected = names.indexOf(p.suggestion) >= 0 ? p.suggestion : '';
+    $('note').value = [p.merchant, p.city, foreign ? original : ''].filter(Boolean).join(' · ');
+
+    sizeAmount();
+    renderCats();
+    updateMain();
+    if (foreign || !p.amount) setTimeout(function () { $('amount').focus(); }, 300);
+  }
+
+  function sizeAmount() {
+    var el = $('amount');
+    var m = $('amount-measure');
+    m.textContent = el.value || el.placeholder || '0';
+    el.style.width = Math.min(m.offsetWidth + 8, 300) + 'px';
+  }
+
+  function amountValue() {
+    var s = String($('amount').value || '').replace(/,(?=\d{1,2}$)/, '.').replace(/[^\d.\-]/g, '');
+    var n = parseFloat(s);
+    return isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  }
+
+  function renderCats() {
+    var d = state.data;
+    var amt = amountValue();
+    var box = $('cats');
+    var cats = d.categories.slice();
+    var sug = d.pending.suggestion;
+    cats.sort(function (a, b) { return (b.name === sug) - (a.name === sug); });
+    box.textContent = '';
+    cats.forEach(function (c) {
+      var sel = c.name === state.selected;
+      var left = sel ? c.remaining - amt : c.remaining;
+      var used = c.budget > 0 ? (c.budget - left) / c.budget : 0;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cat' + (sel ? ' sel' : '');
+      btn.setAttribute('aria-pressed', sel ? 'true' : 'false');
+
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = c.name;
+      var sub = document.createElement('span');
+      sub.className = 'left' + (left < 0 ? ' over' : '');
+      sub.textContent = !c.budget ? 'בלי תקציב'
+        : left < 0 ? 'חריגה של ' + fmt(-left) + ' ₪'
+        : (sel ? 'אחרי: ' : 'נשארו ') + fmt(left) + ' ₪';
+      var bar = document.createElement('div');
+      bar.className = 'bar';
+      var fill = document.createElement('i');
+      fill.style.width = Math.max(0, Math.min(100, used * 100)) + '%';
+      fill.className = used > 1 ? 'over' : used > 0.8 ? 'warm' : '';
+      bar.appendChild(fill);
+
+      btn.appendChild(name);
+      btn.appendChild(sub);
+      btn.appendChild(bar);
+      if (c.name === sug) {
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'מוצע';
+        btn.appendChild(tag);
+      }
+      btn.onclick = function () {
+        state.selected = c.name;
+        haptic('select');
+        renderCats();
+        updateMain();
+      };
+      box.appendChild(btn);
+    });
+  }
+
+  function updateMain() {
+    var amt = amountValue();
+    var ready = !!state.selected && amt !== 0;
+    var text = !state.selected ? 'בחר קטגוריה' : amt === 0 ? 'הקלד סכום' : 'אישור בזיהוי פנים · ' + fmt(amt) + ' ₪';
+    setMain(text, approve, ready);
+  }
+
+  function approve() {
+    if (state.busy) return;
+    var p = state.data.pending;
+    var amt = amountValue();
+    if (!state.selected || amt === 0) { haptic('error'); return; }
+    state.busy = true;
+    var reason = 'רישום ' + fmt(amt) + ' ₪ · ' + (p.merchant || 'הוצאה') + ' ← ' + state.selected;
+    bmAuthenticate(reason).then(function (auth) {
+      if (!auth.ok) { haptic('warning'); toast('האישור בוטל, שום דבר לא נרשם'); return null; }
+      if (!auth.token) throw err('no_token', 'המפתח לא נמצא בטלפון. מאפסים את זיהוי הפנים בעורך הסקריפט ופותחים שוב.');
+      state.token = auth.token;
+      tg.MainButton.showProgress(false);
+      return api('commit', {
+        id: p.id,
+        category: state.selected,
+        amount: amt,
+        note: $('note').value,
+        bioToken: auth.token,
+      }).then(function (r) {
+        haptic('success');
+        renderDone(r, amt, p);
+      });
+    }).catch(function (e) {
+      haptic('error');
+      if (e.code === 'already_handled') { load(p.id); return; }
+      tg.showAlert(e.message);
+    }).then(function () {
+      state.busy = false;
+      try { tg.MainButton.hideProgress(); } catch (x) {}
+    });
+  }
+
+  function renderDone(r, amt, p) {
+    show('done');
+    $('done-line').textContent = fmt(amt) + ' ₪ · ' + (p.merchant || 'הוצאה') + ' ← ' + r.category;
+    $('done-cat').textContent = r.category + ' · החודש';
+    $('done-of').textContent = r.budget ? 'תקציב ' + fmt(r.budget) + ' ₪' : '';
+    var big = $('done-big');
+    big.className = 'big' + (r.remaining < 0 ? ' over' : '');
+    big.textContent = !r.budget ? 'בלי תקציב מוגדר'
+      : r.remaining < 0 ? 'חריגה של ' + fmt(-r.remaining) + ' ₪'
+      : 'נשארו ' + fmt(r.remaining) + ' ₪';
+    var used = r.budget > 0 ? r.spent / r.budget : 0;
+    var bar = $('done-bar');
+    bar.className = used > 1 ? 'over' : used > 0.8 ? 'warm' : '';
+    bar.style.width = '0';
+    setTimeout(function () { bar.style.width = Math.min(100, used * 100) + '%'; }, 60);
+    nextOrClose(r.nextId, true);
+  }
+
+  /* ---------- אירועים ---------- */
+
+  $('amount').addEventListener('input', function () { sizeAmount(); renderCats(); updateMain(); });
+  $('amount').addEventListener('keydown', function (e) { if (e.key === 'Enter') e.target.blur(); });
+  $('note').addEventListener('keydown', function (e) { if (e.key === 'Enter') e.target.blur(); });
+
+  $('reject').onclick = function () {
+    var p = state.data.pending;
+    tg.showConfirm('לא לרשום את הרכישה הזאת?', function (yes) {
+      if (!yes) return;
+      api('reject', { id: p.id, bioToken: state.token }).then(function (r) {
+        haptic('success');
+        toast('סומן כלא לרשום');
+        if (r.nextId) load(r.nextId);
+        else { renderStatic('empty'); state.closeTimer = setTimeout(function () { tg.close(); }, 1800); }
+      }).catch(function (e) {
+        if (e.code === 'already_handled') load(p.id);
+        else if (e.code === 'bad_bio') lockNow();
+        else tg.showAlert(e.message);
+      });
+    });
+  };
+
+  var openSettings = function () { try { bm().openSettings(); } catch (e) {} };
+  $('setup-settings').onclick = openSettings;
+  $('err-settings').onclick = openSettings;
+
+  // יציאה מהמסך ליותר מחצי דקה נועלת אותו שוב
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { state.hiddenAt = Date.now(); return; }
+    if (state.hiddenAt && Date.now() - state.hiddenAt > RELOCK_AFTER_MS && state.token) lockNow();
+    state.hiddenAt = 0;
+  });
+
+  /* ---------- הפעלה ---------- */
+
+  function boot() {
+    if (!tg || !tg.initData) {
+      $('err-msg').textContent = 'צריך לפתוח את המסך מתוך הכפתור בבוט בטלגרם.';
+      show('error');
+      return;
+    }
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('secondary_bg_color'); tg.setBackgroundColor('secondary_bg_color'); } catch (e) {}
+    if (!validApi(API)) return fail('כתובת השרת חסרה או לא תקינה בקישור. שלח רכישה חדשה מהקיצור.');
+    if (!tg.isVersionAtLeast('7.2')) return fail('עדכן את טלגרם לגרסה האחרונה כדי להשתמש באישור בזיהוי פנים.');
+    bmInit().then(function () {
+      if (!bm().isInited) return fail('לא הצלחתי להפעיל את זיהוי הפנים בטלגרם.', function () { location.reload(); });
+      start();
+    });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
