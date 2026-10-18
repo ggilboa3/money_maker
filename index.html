@@ -225,6 +225,7 @@
   var qs = new URLSearchParams(location.search);
   var API = PINNED_API || qs.get('api') || '';
   var WAITING = 'ממתין';
+  var EXPIRED = 'פג תוקף';
   var RELOCK_AFTER_MS = 30000;
   var state = { hello: null, data: null, token: '', selected: '', busy: false, closeTimer: null, wantId: qs.get('id') || '', view: '', hiddenAt: 0 };
   var mainHandler = null;
@@ -473,7 +474,7 @@
       state.data = d;
       state.wantId = '';
       if (!d.pending) return renderStatic('empty');
-      if (d.pending.status !== WAITING) return renderHandled();
+      if (d.pending.status !== WAITING && d.pending.status !== EXPIRED) return renderHandled();
       renderPurchase();
     }).catch(function (e) {
       if (e.code === 'bad_bio' || e.code === 'not_registered') { state.token = ''; return renderLock(e.message); }
@@ -517,6 +518,7 @@
     $('meta').textContent = [p.city ? '📍 ' + p.city : '', fmtTime(p.received), p.card].filter(Boolean).join(' · ');
 
     var warns = [];
+    if (p.status === EXPIRED) warns.push('הרכישה בוטלה כי לא אושרה תוך שעה. אם היא קרתה, אפשר להכניס אותה עכשיו.');
     if (foreign) warns.push('חיוב במטבע זר' + (original ? ' (' + original + ')' : '') + '. תקליד את הסכום בשקלים, אפשר בהערכה.');
     else if (!p.amount) warns.push('הסכום לא הגיע מאפל פיי, תקליד אותו למעלה.');
     $('warn').hidden = !warns.length;
